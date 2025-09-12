@@ -104,7 +104,7 @@ install_docker() {
 }
 
 unattended_upgrades() {
-  # Install an enable unattended-upgrades for automatic security upgrades.
+  # Install and enable unattended-upgrades for automatic security upgrades.
   # https://wiki.debian.org/PeriodicUpdates?action=show&redirect=UnattendedUpgrades
   echo -e "${GREEN}Ensuring unattended-upgrades is installed and running...${RESET}"
   apt-get install unattended-upgrades -qq
