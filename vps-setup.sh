@@ -103,6 +103,14 @@ install_docker() {
   usermod -aG docker sysadmin
 }
 
+unattended_upgrades() {
+  # Install an enable unattended-upgrades for automatic security upgrades.
+  # https://wiki.debian.org/PeriodicUpdates?action=show&redirect=UnattendedUpgrades
+  echo -e "${GREEN}Ensuring unattended-upgrades is installed and running...${RESET}"
+  apt-get install unattended-upgrades -qq
+  dpkg-reconfigure -f noninteractive unattended-upgrades
+}
+
 main () {
     update_apt
     setup_firewall
@@ -112,6 +120,7 @@ main () {
     install_utils
     add_sysadmin_user
     install_docker
+    unattended_upgrades
     finish_message
 }
 
