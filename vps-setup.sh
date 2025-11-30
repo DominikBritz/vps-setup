@@ -3,12 +3,9 @@
 # This script follows the guidelines recommended by Hetzner:
 #  - https://community.hetzner.com/tutorials/setup-ubuntu-20-04
 #
-# This script is developed for Debian 12.
+# This script is developed for Ubuntu.
 
-# Add simple distro detection and non-interactive apt helper
-if [ -f /etc/os-release ]; then
-	. /etc/os-release
-fi
+# Add non-interactive apt helper
 APT_INSTALL="apt-get install -y -qq"
 
 
@@ -140,22 +137,33 @@ finish_message() {
 
 install_docker() {
   echo "Installing latest version of docker..."
-  # Commands extracted from official documentation:
-  # https://docs.docker.com/engine/install/debian/#install-using-the-repository
-  apt-get update -qq
+  # Add Docker's official GPG key:
   $APT_INSTALL ca-certificates curl
-   install -m 0755 -d /etc/apt/keyrings
-   curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
-   chmod a+r /etc/apt/keyrings/docker.asc
-   echo \
-     "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
-     $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-     tee /etc/apt/sources.list.d/docker.list > /dev/null
-   apt-get update -qq
+  install -m 0755 -d /etc/apt/keyrings
+  curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  chmod a+r /etc/apt/keyrings/docker.asc
+
+  # Add the repository to Apt sources:
+  tee /etc/apt/sources.list.d/docker.sources <<EOF
+  Types: deb
+  URIs: https://download.docker.com/linux/ubuntu
+  Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
+  Components: stable
+  Signed-By: /etc/apt/keyrings/docker.asc
+  EOF
+
+  apt update
+
   $APT_INSTALL docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
   echo "Adding sysadmin user to docker group..."
-  usermod -aG docker sysadmin
+  # Use the username provided earlier (if any)
+  if [ -n "$NEW_USER" ]; then
+    echo "Adding $NEW_USER to docker group..."
+    usermod -aG docker "$NEW_USER"
+  else
+    echo "No NEW_USER set; skipping adding user to docker group."
+  fi
 }
 
 unattended_upgrades() {
