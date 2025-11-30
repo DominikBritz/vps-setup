@@ -95,42 +95,42 @@ add_sysadmin_user() {
     passwd "$NEW_USER"
     usermod -aG sudo "$NEW_USER" 2>/dev/null || usermod -aG wheel "$NEW_USER"
 
-  # SSH Key Setup
-  echo
-  echo "Choose SSH setup method:"
-  echo "1) Paste your existing public key"
-  echo "2) Generate a new SSH keypair for this user"
-  echo "3) Skip (not recommended)"
-  read -p "Enter your choice [1-3]: " SSH_CHOICE
+    # SSH Key Setup
+    echo
+    echo "Choose SSH setup method:"
+    echo "1) Paste your existing public key"
+    echo "2) Generate a new SSH keypair for this user"
+    echo "3) Skip (not recommended)"
+    read -p "Enter your choice [1-3]: " SSH_CHOICE
 
-  if [[ "$SSH_CHOICE" == "1" ]]; then
-      read -p "Paste the SSH public key: " USER_SSH_KEY
-      mkdir -p /home/$NEW_USER/.ssh
-      echo "$USER_SSH_KEY" > /home/$NEW_USER/.ssh/authorized_keys
-      chmod 700 /home/$NEW_USER/.ssh
-      chmod 600 /home/$NEW_USER/.ssh/authorized_keys
-      chown -R $NEW_USER:$NEW_USER /home/$NEW_USER/.ssh
-      echo "Public key added for $NEW_USER."
+    if [[ "$SSH_CHOICE" == "1" ]]; then
+        read -p "Paste the SSH public key: " USER_SSH_KEY
+        mkdir -p /home/$NEW_USER/.ssh
+        echo "$USER_SSH_KEY" > /home/$NEW_USER/.ssh/authorized_keys
+        chmod 700 /home/$NEW_USER/.ssh
+        chmod 600 /home/$NEW_USER/.ssh/authorized_keys
+        chown -R $NEW_USER:$NEW_USER /home/$NEW_USER/.ssh
+        echo "Public key added for $NEW_USER."
 
-  elif [[ "$SSH_CHOICE" == "2" ]]; then
-      mkdir -p /root/ssh-keys
-      ssh-keygen -t rsa -b 4096 -f /root/ssh-keys/${NEW_USER}_id_rsa -N ""
-      mkdir -p /home/$NEW_USER/.ssh
-      cat /root/ssh-keys/${NEW_USER}_id_rsa.pub > /home/$NEW_USER/.ssh/authorized_keys
-      chmod 700 /home/$NEW_USER/.ssh
-      chmod 600 /home/$NEW_USER/.ssh/authorized_keys
-      chown -R $NEW_USER:$NEW_USER /home/$NEW_USER/.ssh
-      echo "SSH keypair generated for $NEW_USER."
-      echo
-      echo "⚠️ Copy and store the following private key securely (you'll need it to log in):"
-      echo
-      cat /root/ssh-keys/${NEW_USER}_id_rsa
-      echo
-      echo "Saved at: /root/ssh-keys/${NEW_USER}_id_rsa"
-  else
-      echo "⚠️ No SSH key configured. Ensure password login is enabled or you have console/VNC access."
+    elif [[ "$SSH_CHOICE" == "2" ]]; then
+        mkdir -p /root/ssh-keys
+        ssh-keygen -t rsa -b 4096 -f /root/ssh-keys/${NEW_USER}_id_rsa -N ""
+        mkdir -p /home/$NEW_USER/.ssh
+        cat /root/ssh-keys/${NEW_USER}_id_rsa.pub > /home/$NEW_USER/.ssh/authorized_keys
+        chmod 700 /home/$NEW_USER/.ssh
+        chmod 600 /home/$NEW_USER/.ssh/authorized_keys
+        chown -R $NEW_USER:$NEW_USER /home/$NEW_USER/.ssh
+        echo "SSH keypair generated for $NEW_USER."
+        echo
+        echo "⚠️ Copy and store the following private key securely (you'll need it to log in):"
+        echo
+        cat /root/ssh-keys/${NEW_USER}_id_rsa
+        echo
+        echo "Saved at: /root/ssh-keys/${NEW_USER}_id_rsa"
+    else
+        echo "⚠️ No SSH key configured. Ensure password login is enabled or you have console/VNC access."
+    fi
   fi
-
 
 }
 
