@@ -22,12 +22,6 @@ if [ -z "$1" ] || [ "$1" != "--confirm" ]; then
     exit 1
 fi
 
-if [ ! -f id_ed25519.pub ]; then
-    echo "This script will create a sysadmin account. A file named id_ed25519.pub with the public key for this user needs to exist in this directory."
-    echo "Exiting..."
-    exit 1
-fi
-
 update_apt() {
     echo "Updating apt-get repository and upgrading the system..."
     apt-get update -qq
