@@ -145,12 +145,12 @@ install_docker() {
 
   # Add the repository to Apt sources:
   tee /etc/apt/sources.list.d/docker.sources <<EOF
-  Types: deb
-  URIs: https://download.docker.com/linux/ubuntu
-  Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
-  Components: stable
-  Signed-By: /etc/apt/keyrings/docker.asc
-  EOF
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
+Components: stable
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
 
   apt update
 
@@ -174,6 +174,19 @@ unattended_upgrades() {
    dpkg-reconfigure -f noninteractive unattended-upgrades
 }
 
+create_weekly_upgrade_cron() {
+  echo "Creating weekly upgrade cron job (Sun 01:00)..."
+  cat > /etc/cron.d/weekly-upgrade <<'EOF'
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+0 1 * * 0 root /usr/bin/apt update && /usr/bin/apt dist-upgrade -y && /usr/bin/apt autoremove -y && /sbin/reboot >> /var/log/weekly-upgrade.log 2>&1
+EOF
+  chmod 644 /etc/cron.d/weekly-upgrade
+  touch /var/log/weekly-upgrade.log
+  chown root:root /var/log/weekly-upgrade.log
+  echo "Wrote /etc/cron.d/weekly-upgrade and created /var/log/weekly-upgrade.log"
+}
+
 main () {
     update_apt
     setup_firewall
@@ -184,6 +197,7 @@ main () {
     add_sysadmin_user
     install_docker
     unattended_upgrades
+    create_weekly_upgrade_cron
     finish_message
 }
 
