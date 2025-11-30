@@ -5,6 +5,12 @@
 #
 # This script is developed for Debian 12.
 
+# Add simple distro detection and non-interactive apt helper
+if [ -f /etc/os-release ]; then
+	. /etc/os-release
+fi
+APT_INSTALL="apt-get install -y -qq"
+
 
 if [ -z "$1" ] || [ "$1" != "--confirm" ]; then
     echo "ATTENTION!!"
@@ -25,17 +31,18 @@ fi
 update_apt() {
     echo "Updating apt-get repository and upgrading the system..."
     apt-get update -qq
-    apt-get upgrade -qq
+    apt-get upgrade -y -qq
 }
 
 setup_firewall() {
-  echo "Installing firewall and opening only ports 1222 (ssh), 80 and 443... "
-  apt-get install ufw -qq
-  ufw default deny incoming
-  ufw allow 1222/tcp
-  ufw allow 80/tcp
-  ufw allow 443/tcp
-  ufw enable
+  echo "Installing firewall and opening only ports 1222 (ssh), 80 and 443..."
+  $APT_INSTALL ufw
+   ufw default deny incoming
+   ufw allow 1222/tcp
+   ufw allow 80/tcp
+   ufw allow 443/tcp
+  # Force enable to avoid interactive confirmation on Ubuntu
+  ufw --force enable
 }
 
 setup_ssh_daemon() {
@@ -44,25 +51,33 @@ setup_ssh_daemon() {
   # prohibit-password is Debian's default
   sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config
   sed -i 's/#Port 22/Port 1222/' /etc/ssh/sshd_config
-  systemctl restart ssh
+  # restart whichever ssh service exists on Debian/Ubuntu
+  systemctl restart ssh || systemctl restart sshd || true
 }
 
 setup_fail2ban() {
   echo "Installing and enabling fail2ban (using default configs)..."
-  apt-get install fail2ban -qq
-  echo -e "[sshd]\nbackend=systemd\nenabled=true" | sudo tee /etc/fail2ban/jail.local
-  systemctl enable fail2ban
-  systemctl start fail2ban
+  $APT_INSTALL fail2ban
+  # Write fail2ban jail.local using a heredoc to preserve newlines
+  sudo tee /etc/fail2ban/jail.local > /dev/null <<'EOF'
+[sshd]
+backend=systemd
+enabled=true
+EOF
+  # python3-systemd may be required on some distros; install if available
+  $APT_INSTALL python3-systemd || true
+   systemctl enable fail2ban
+   systemctl start fail2ban
 }
 
 setup_logwatch() {
   echo "Installing and enabling logwatch (using default configs)..."
-  apt-get install logwatch -qq
+  $APT_INSTALL logwatch
 }
 
 install_utils() {
   echo "Installing util tools: htop, vim and git..."
-  apt-get install htop vim git -qq
+  $APT_INSTALL htop vim git
 }
 
 add_sysadmin_user() {
@@ -134,16 +149,16 @@ install_docker() {
   # Commands extracted from official documentation:
   # https://docs.docker.com/engine/install/debian/#install-using-the-repository
   apt-get update -qq
-  apt-get install ca-certificates curl -qq
-  install -m 0755 -d /etc/apt/keyrings
-  curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
-  chmod a+r /etc/apt/keyrings/docker.asc
-  echo \
-    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
-    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-    tee /etc/apt/sources.list.d/docker.list > /dev/null
-  apt-get update -qq
-  apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -qq
+  $APT_INSTALL ca-certificates curl
+   install -m 0755 -d /etc/apt/keyrings
+   curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+   chmod a+r /etc/apt/keyrings/docker.asc
+   echo \
+     "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
+     $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+     tee /etc/apt/sources.list.d/docker.list > /dev/null
+   apt-get update -qq
+  $APT_INSTALL docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
   echo "Adding sysadmin user to docker group..."
   usermod -aG docker sysadmin
@@ -153,8 +168,8 @@ unattended_upgrades() {
   # Install and enable unattended-upgrades for automatic security upgrades.
   # https://wiki.debian.org/PeriodicUpdates?action=show&redirect=UnattendedUpgrades
   echo "Ensuring unattended-upgrades is installed and running..."
-  apt-get install unattended-upgrades -qq
-  dpkg-reconfigure -f noninteractive unattended-upgrades
+  $APT_INSTALL unattended-upgrades
+   dpkg-reconfigure -f noninteractive unattended-upgrades
 }
 
 main () {
