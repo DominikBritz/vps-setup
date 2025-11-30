@@ -4,9 +4,7 @@
 #  - https://community.hetzner.com/tutorials/setup-ubuntu-20-04
 #
 # This script is developed for Debian 12.
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-RESET='\033[0m'
+
 
 if [ -z "$1" ] || [ "$1" != "--confirm" ]; then
     echo "ATTENTION!!"
@@ -19,19 +17,19 @@ if [ -z "$1" ] || [ "$1" != "--confirm" ]; then
 fi
 
 if [ ! -f id_ed25519.pub ]; then
-    echo -e "${RED}This script will create a sysadmin account. A file named id_ed25519.pub with the public key for this user needs to exist in this directory.${RESET}"
-    echo -e "${RED}Exiting...${RESET}"
+    echo "This script will create a sysadmin account. A file named id_ed25519.pub with the public key for this user needs to exist in this directory."
+    echo "Exiting..."
     exit 1
 fi
 
 update_apt() {
-    echo -e "${GREEN} Updating apt-get repository and upgrading the system...${RESET}"
+    echo "Updating apt-get repository and upgrading the system..."
     apt-get update -qq
     apt-get upgrade -qq
 }
 
 setup_firewall() {
-  echo -e "${GREEN}Installing firewall and opening only ports 1222 (ssh), 80 and 443... ${RESET}"
+  echo "Installing firewall and opening only ports 1222 (ssh), 80 and 443... "
   apt-get install ufw -qq
   ufw default deny incoming
   ufw allow 1222/tcp
@@ -41,7 +39,7 @@ setup_firewall() {
 }
 
 setup_ssh_daemon() {
-  echo -e "${GREEN}Disabbling password authentication, root login and changing SSH port to 1222...${RESET}"
+  echo "Disabbling password authentication, root login and changing SSH port to 1222..."
   sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
   # prohibit-password is Debian's default
   sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config
@@ -50,7 +48,7 @@ setup_ssh_daemon() {
 }
 
 setup_fail2ban() {
-  echo -e "${GREEN}Installing and enabling fail2ban (using default configs)...${RESET}"
+  echo "Installing and enabling fail2ban (using default configs)..."
   apt-get install fail2ban -qq
   # For Debian 12 install: https://github.com/fail2ban/fail2ban/issues/3292#issuecomment-1678844644
   # This should no longer be necessary in the next 1.1.1 release: https://github.com/fail2ban/fail2ban/commit/d0d07285234871bad3dc0c359d0ec03365b6dddc
@@ -61,30 +59,81 @@ setup_fail2ban() {
 }
 
 setup_logwatch() {
-  echo -e "${GREEN}Installing and enabling logwatch (using default configs)...${RESET}"
+  echo "Installing and enabling logwatch (using default configs)..."
   apt-get install logwatch -qq
 }
 
 install_utils() {
-  echo -e "${GREEN}Installing util tools: htop, vim and git...${RESET}"
+  echo "Installing util tools: htop, vim and git..."
   apt-get install htop vim git -qq
 }
 
 add_sysadmin_user() {
-  echo -e "${GREEN}Adding a sysadmin user with sudo permission...${RESET}"
-  adduser sysadmin
-  usermod -aG sudo sysadmin
-  mkdir /home/sysadmin/.ssh
-  echo -e "${GREEN}Adding the id_ed25519.pub key to authorized_keys file of sysadmin user...${RESET}"
-  cat id_ed25519.pub >> /home/sysadmin/.ssh/authorized_keys
+  echo "Adding a sysadmin user with sudo permission..."
+  
+  read -p "Enter the new username: " NEW_USER
+
+  # Check if user already exists
+  if id "$NEW_USER" &>/dev/null; then
+      echo "User $NEW_USER already exists."
+      read -p "Do you want to give this user sudo access? [y/N]: " GRANT_SUDO
+      if [[ "$GRANT_SUDO" =~ ^[Yy]$ ]]; then
+          usermod -aG sudo "$NEW_USER" 2>/dev/null || usermod -aG wheel "$NEW_USER"
+          echo "Sudo access granted to $NEW_USER."
+      else
+          echo "Skipping sudo access setup."
+      fi
+  else
+    # Create user
+    useradd -m "$NEW_USER"
+    passwd "$NEW_USER"
+    usermod -aG sudo "$NEW_USER" 2>/dev/null || usermod -aG wheel "$NEW_USER"
+
+  # SSH Key Setup
+  echo
+  echo "Choose SSH setup method:"
+  echo "1) Paste your existing public key"
+  echo "2) Generate a new SSH keypair for this user"
+  echo "3) Skip (not recommended)"
+  read -p "Enter your choice [1-3]: " SSH_CHOICE
+
+  if [[ "$SSH_CHOICE" == "1" ]]; then
+      read -p "Paste the SSH public key: " USER_SSH_KEY
+      mkdir -p /home/$NEW_USER/.ssh
+      echo "$USER_SSH_KEY" > /home/$NEW_USER/.ssh/authorized_keys
+      chmod 700 /home/$NEW_USER/.ssh
+      chmod 600 /home/$NEW_USER/.ssh/authorized_keys
+      chown -R $NEW_USER:$NEW_USER /home/$NEW_USER/.ssh
+      echo "Public key added for $NEW_USER."
+
+  elif [[ "$SSH_CHOICE" == "2" ]]; then
+      mkdir -p /root/ssh-keys
+      ssh-keygen -t rsa -b 4096 -f /root/ssh-keys/${NEW_USER}_id_rsa -N ""
+      mkdir -p /home/$NEW_USER/.ssh
+      cat /root/ssh-keys/${NEW_USER}_id_rsa.pub > /home/$NEW_USER/.ssh/authorized_keys
+      chmod 700 /home/$NEW_USER/.ssh
+      chmod 600 /home/$NEW_USER/.ssh/authorized_keys
+      chown -R $NEW_USER:$NEW_USER /home/$NEW_USER/.ssh
+      echo "SSH keypair generated for $NEW_USER."
+      echo
+      echo "⚠️ Copy and store the following private key securely (you'll need it to log in):"
+      echo
+      cat /root/ssh-keys/${NEW_USER}_id_rsa
+      echo
+      echo "Saved at: /root/ssh-keys/${NEW_USER}_id_rsa"
+  else
+      echo "⚠️ No SSH key configured. Ensure password login is enabled or you have console/VNC access."
+  fi
+
+
 }
 
 finish_message() {
-  echo -e "${GREEN}Configuration Finished!! Before closing this session check that you can ssh in using port 1222 with the newly created sysadmin account.${RESET}"
+  echo "Configuration Finished!! Before closing this session check that you can ssh in using port 1222 with the newly created sysadmin account."
 }
 
 install_docker() {
-  echo -e "${GREEN}Installing latest version of docker...${RESET}"
+  echo "Installing latest version of docker..."
   # Commands extracted from official documentation:
   # https://docs.docker.com/engine/install/debian/#install-using-the-repository
   apt-get update -qq
@@ -99,14 +148,14 @@ install_docker() {
   apt-get update -qq
   apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -qq
 
-  echo -e "${GREEN}Adding sysadmin user to docker group...${RESET}"
+  echo "Adding sysadmin user to docker group..."
   usermod -aG docker sysadmin
 }
 
 unattended_upgrades() {
   # Install and enable unattended-upgrades for automatic security upgrades.
   # https://wiki.debian.org/PeriodicUpdates?action=show&redirect=UnattendedUpgrades
-  echo -e "${GREEN}Ensuring unattended-upgrades is installed and running...${RESET}"
+  echo "Ensuring unattended-upgrades is installed and running..."
   apt-get install unattended-upgrades -qq
   dpkg-reconfigure -f noninteractive unattended-upgrades
 }
