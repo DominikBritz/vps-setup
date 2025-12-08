@@ -26,12 +26,14 @@ update_apt() {
 }
 
 setup_firewall() {
-  echo "Installing firewall and opening only ports 1222 (ssh), 80 and 443..."
+  echo "Installing firewall and opening ports 1222 (ssh), 80, 443, 51820/udp and 21820/udp..."
   $APT_INSTALL ufw
-   ufw default deny incoming
-   ufw allow 1222/tcp
-   ufw allow 80/tcp
-   ufw allow 443/tcp
+  ufw default deny incoming
+  ufw allow 1222/tcp
+  ufw allow 80/tcp
+  ufw allow 443/tcp
+  ufw allow in proto udp to any port 51820
+  ufw allow in proto udp to any port 21820
   # Force enable to avoid interactive confirmation on Ubuntu
   ufw --force enable
 }
